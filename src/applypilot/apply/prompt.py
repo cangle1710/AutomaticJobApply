@@ -441,10 +441,11 @@ def build_prompt(job: dict, tailored_resume: str,
 
     # --- Resolve resume PDF path ---
     resume_path = job.get("tailored_resume_path")
-    if not resume_path:
-        raise ValueError(f"No tailored resume for job: {job.get('title', 'unknown')}")
+    if resume_path:
+        src_pdf = Path(resume_path).with_suffix(".pdf").resolve()
+    else:
+        src_pdf = config.RESUME_PDF_PATH.resolve()
 
-    src_pdf = Path(resume_path).with_suffix(".pdf").resolve()
     if not src_pdf.exists():
         raise ValueError(f"Resume PDF not found: {src_pdf}")
 

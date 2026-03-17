@@ -136,6 +136,7 @@ def run_scoring(limit: int = 0, rescore: bool = False) -> dict:
     t0 = time.time()
     completed = 0
     errors = 0
+    written = 0
     results: list[dict] = []
 
     for job in jobs:
@@ -148,13 +149,26 @@ def run_scoring(limit: int = 0, rescore: bool = False) -> dict:
 
         results.append(result)
 
+        # Write each score immediately so apply can run concurrently
+        written += update_job_scores(conn, [result])
+
+        salary_parts = []
+        if job.get("salary_min"):
+            salary_parts.append(f"${job['salary_min']:,.0f}")
+        if job.get("salary_max"):
+            salary_parts.append(f"${job['salary_max']:,.0f}")
+        salary_str = ("  salary=" + "-".join(salary_parts)) if salary_parts else ""
+        reasoning = (result.get("reasoning") or "").strip()
         log.info(
-            "[%d/%d] score=%d  %s",
-            completed, len(jobs), result["score"], (job.get("title") or "?")[:60],
+            "[%d/%d] score=%d  %-50s  %-25s  %-20s%s\n           %s",
+            completed, len(jobs), result["score"],
+            (job.get("title") or "?")[:50],
+            (job.get("company") or "?")[:25],
+            (job.get("location") or "?")[:20],
+            salary_str,
+            reasoning,
         )
 
-    # Write scores to DB — skip LLM errors so fit_score stays NULL (remains pending_score for retry)
-    written = update_job_scores(conn, results)
     skipped = len(results) - written
     if skipped:
         log.warning("%d job(s) not saved due to LLM errors — re-run scoring to retry them", skipped)

@@ -206,12 +206,12 @@ def apply(
     if not (gen and url):
         conn = get_connection()
         ready = conn.execute(
-            "SELECT COUNT(*) FROM jobs WHERE tailored_resume_path IS NOT NULL AND applied_at IS NULL"
+            "SELECT COUNT(*) FROM jobs WHERE fit_score IS NOT NULL AND applied_at IS NULL"
         ).fetchone()[0]
         if ready == 0:
             console.print(
-                "[red]No tailored resumes ready.[/red]\n"
-                "Run [bold]applypilot run score tailor[/bold] first to prepare applications."
+                "[red]No scored jobs ready.[/red]\n"
+                "Run [bold]applypilot run score[/bold] first to prepare applications."
             )
             raise typer.Exit(code=1)
 

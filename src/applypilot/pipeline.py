@@ -34,6 +34,10 @@ console = Console()
 # Stage definitions
 # ---------------------------------------------------------------------------
 
+# Set to False to skip resume tailoring and go straight from score → apply.
+# Flip back to True to re-enable the full tailor → cover → pdf flow.
+TAILOR_ENABLED = False
+
 STAGE_ORDER = ("discover", "enrich", "score", "tailor", "cover", "pdf")
 
 STAGE_META: dict[str, dict] = {
@@ -195,6 +199,7 @@ def _run_workday_native() -> dict:
                 queries=queries,
                 companies=companies,
                 validate=True,
+                config={"fetch_detail": True},
                 proxy=proxy,
                 rate=2.0,   # 2 req/s sustained across all companies
                 burst=15,
@@ -424,6 +429,9 @@ def _run_score(min_score: int = 7, top_n: int = 10) -> dict:
 
 def _run_tailor(min_score: int = 7, validation_mode: str = "normal") -> dict:
     """Stage: Resume tailoring — generate tailored resumes for high-fit jobs."""
+    if not TAILOR_ENABLED:
+        log.info("Tailor stage is disabled (TAILOR_ENABLED=False). Skipping.")
+        return {"status": "skipped"}
     try:
         from applypilot.scoring.tailor import run_tailoring
         run_tailoring(min_score=min_score, validation_mode=validation_mode)
