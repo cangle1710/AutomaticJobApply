@@ -56,7 +56,7 @@ _MAX_PAGES = 50          # hard cap: 1 000 results per company per query
 _VALIDATE_TIMEOUT = 10   # seconds for the probe request
 
 # Ordered by likelihood — most Workday tenants are on wd5 or wd1
-_WD_HOSTS = ("wd5", "wd1", "wd2", "wd3", "wd4", "wd6", "wd12")
+_WD_HOSTS = ("wd5", "wd1", "wd2", "wd3", "wd4", "wd6", "wd12", "wd103")
 
 
 # ---------------------------------------------------------------------------

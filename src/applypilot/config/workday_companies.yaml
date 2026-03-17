@@ -432,3 +432,358 @@ companies:
     tenant: "pwc"
     site_id: "Global_Experienced_Careers"
     wd_host: "wd3"
+
+  - name: "Accenture"
+    tenant: "accenture"
+    site_id: "AccentureCareers"
+    wd_host: "wd103"
+
+  - name: "DXC Technology"
+    tenant: "dxctechnology"
+    site_id: "DXCJobs"
+    wd_host: "wd1"
+
+  - name: "Kyndryl"
+    tenant: "kyndryl"
+    site_id: "KyndrylProfessionalCareers"
+    wd_host: "wd5"
+
+  - name: "Unisys"
+    tenant: "unisys"
+    site_id: "External"
+    wd_host: "wd5"
+
+  - name: "Gartner"
+    tenant: "gartner"
+    site_id: "EXT"
+    wd_host: "wd5"
+
+  # ── Semiconductors & Hardware ──────────────────────────────────────────────
+  - name: "Dell Technologies"
+    tenant: "dell"
+    site_id: "External"
+    wd_host: "wd1"
+
+  - name: "Broadcom"
+    tenant: "broadcom"
+    site_id: "External_Career"
+    wd_host: "wd1"
+
+  - name: "Marvell Technology"
+    tenant: "marvell"
+    site_id: "MarvellCareers"
+    wd_host: "wd1"
+
+  - name: "Micron Technology"
+    tenant: "micron"
+    site_id: "External"
+    wd_host: "wd1"
+
+  - name: "Applied Materials"
+    tenant: "amat"
+    site_id: "External"
+    wd_host: "wd1"
+
+  - name: "KLA Corporation"
+    tenant: "kla"
+    site_id: "Search"
+    wd_host: "wd1"
+
+  - name: "Analog Devices"
+    tenant: "analogdevices"
+    site_id: "External"
+    wd_host: "wd1"
+
+  - name: "Microchip Technology"
+    tenant: "microchiphr"
+    site_id: "External"
+    wd_host: "wd5"
+
+  - name: "Entegris"
+    tenant: "entegris"
+    site_id: "EntegrisCareers"
+    wd_host: "wd1"
+
+  - name: "Altera"
+    tenant: "altera"
+    site_id: "Altera"
+    wd_host: "wd1"
+
+  # ── Cybersecurity ──────────────────────────────────────────────────────────
+  - name: "CrowdStrike"
+    tenant: "crowdstrike"
+    site_id: "crowdstrikecareers"
+    wd_host: "wd5"
+
+  - name: "Proofpoint"
+    tenant: "proofpoint"
+    site_id: "ProofpointCareers"
+    wd_host: "wd5"
+
+  - name: "Mimecast"
+    tenant: "mimecast"
+    site_id: "Mimecast-Careers"
+    wd_host: "wd5"
+
+  - name: "Rapid7"
+    tenant: "mymoose"
+    site_id: "careers"
+    wd_host: "wd1"
+
+  - name: "Entrust"
+    tenant: "entrust"
+    site_id: "EntrustCareers"
+    wd_host: "wd1"
+
+  - name: "Gen Digital"
+    tenant: "gen"
+    site_id: "careers"
+    wd_host: "wd1"
+
+  - name: "Veritas Technologies"
+    tenant: "veritas"
+    site_id: "careers"
+    wd_host: "wd1"
+
+  - name: "Optiv"
+    tenant: "optiv"
+    site_id: "Optiv_Careers"
+    wd_host: "wd5"
+
+  # ── Cloud Infrastructure & Networking ─────────────────────────────────────
+  - name: "Equinix"
+    tenant: "equinix"
+    site_id: "External"
+    wd_host: "wd1"
+
+  - name: "Iron Mountain"
+    tenant: "ironmountain"
+    site_id: "iron-mountain-jobs"
+    wd_host: "wd5"
+
+  - name: "Citrix"
+    tenant: "citrix"
+    site_id: "CitrixCareers"
+    wd_host: "wd1"
+
+  - name: "RingCentral"
+    tenant: "ringcentral"
+    site_id: "RingCentral_Careers"
+    wd_host: "wd1"
+
+  - name: "GoTo"
+    tenant: "goto"
+    site_id: "GoToCareers"
+    wd_host: "wd5"
+
+  # ── Enterprise & Vertical SaaS ─────────────────────────────────────────────
+  - name: "Sprinklr"
+    tenant: "sprinklr"
+    site_id: "careers"
+    wd_host: "wd1"
+
+  - name: "Guidewire"
+    tenant: "guidewire"
+    site_id: "external"
+    wd_host: "wd5"
+
+  - name: "Epicor"
+    tenant: "epicorsoftware"
+    site_id: "epicorjobs"
+    wd_host: "wd5"
+
+  - name: "Blue Yonder"
+    tenant: "jda"
+    site_id: "JDA_Careers"
+    wd_host: "wd5"
+
+  - name: "Manhattan Associates"
+    tenant: "manh"
+    site_id: "External"
+    wd_host: "wd5"
+
+  - name: "Automation Anywhere"
+    tenant: "automationanywhere"
+    site_id: "AutomationAnywhereJobs"
+    wd_host: "wd5"
+
+  - name: "Finastra"
+    tenant: "finastra"
+    site_id: "FINC"
+    wd_host: "wd3"
+
+  - name: "Duck Creek Technologies"
+    tenant: "duckcreek"
+    site_id: "duckcreekcareers"
+    wd_host: "wd1"
+
+  - name: "Rockwell Automation"
+    tenant: "rockwellautomation"
+    site_id: "External_Rockwell_Automation"
+    wd_host: "wd1"
+
+  # ── IT Distribution & Services ─────────────────────────────────────────────
+  - name: "HP Inc."
+    tenant: "hp"
+    site_id: "ExternalCareerSite"
+    wd_host: "wd5"
+
+  - name: "Hewlett Packard Enterprise"
+    tenant: "hpe"
+    site_id: "Jobsathpe"
+    wd_host: "wd5"
+
+  - name: "CDW"
+    tenant: "cdw"
+    site_id: "Careers"
+    wd_host: "wd5"
+
+  - name: "NCR Voyix"
+    tenant: "ncr"
+    site_id: "ext_us"
+    wd_host: "wd1"
+
+  # ── Defense & Aerospace ────────────────────────────────────────────────────
+  - name: "Boeing"
+    tenant: "boeing"
+    site_id: "EXTERNAL_CAREERS"
+    wd_host: "wd1"
+
+  - name: "Northrop Grumman"
+    tenant: "ngc"
+    site_id: "Northrop_Grumman_External_Site"
+    wd_host: "wd1"
+
+  - name: "RTX"
+    tenant: "globalhr"
+    site_id: "REC_RTX_Ext_Gateway"
+    wd_host: "wd5"
+
+  - name: "General Dynamics IT"
+    tenant: "gdit"
+    site_id: "External_Career_Site"
+    wd_host: "wd5"
+
+  - name: "Parsons Corporation"
+    tenant: "parsons"
+    site_id: "Search"
+    wd_host: "wd5"
+
+  - name: "Maxar Technologies"
+    tenant: "maxar"
+    site_id: "Vantor"
+    wd_host: "wd1"
+
+  # ── Life Sciences & Healthcare ─────────────────────────────────────────────
+  - name: "IQVIA"
+    tenant: "iqvia"
+    site_id: "IQVIA"
+    wd_host: "wd1"
+
+  - name: "Agilent Technologies"
+    tenant: "agilent"
+    site_id: "Agilent_Careers"
+    wd_host: "wd5"
+
+  - name: "Illumina"
+    tenant: "illumina"
+    site_id: "illumina-careers"
+    wd_host: "wd1"
+
+  - name: "Danaher"
+    tenant: "danaher"
+    site_id: "DanaherJobs"
+    wd_host: "wd1"
+
+  - name: "McKesson"
+    tenant: "mckesson"
+    site_id: "External_Careers"
+    wd_host: "wd3"
+
+  - name: "CVS Health"
+    tenant: "cvshealth"
+    site_id: "CVS_Health_Careers"
+    wd_host: "wd1"
+
+  - name: "Cigna Group"
+    tenant: "cigna"
+    site_id: "cignacareers"
+    wd_host: "wd5"
+
+  # ── Financial Services ─────────────────────────────────────────────────────
+  - name: "Fidelity Investments"
+    tenant: "fmr"
+    site_id: "FidelityCareers"
+    wd_host: "wd1"
+
+  - name: "BlackRock"
+    tenant: "blackrock"
+    site_id: "BlackRock_Professional"
+    wd_host: "wd1"
+
+  - name: "Vanguard"
+    tenant: "vanguard"
+    site_id: "vanguard_external"
+    wd_host: "wd5"
+
+  - name: "S&P Global"
+    tenant: "spgi"
+    site_id: "SPGI_Careers"
+    wd_host: "wd5"
+
+  - name: "SS&C Technologies"
+    tenant: "ssctech"
+    site_id: "SSCTechnologies"
+    wd_host: "wd1"
+
+  - name: "Broadridge Financial"
+    tenant: "broadridge"
+    site_id: "Careers"
+    wd_host: "wd5"
+
+  - name: "Fiserv"
+    tenant: "fiserv"
+    site_id: "EXT"
+    wd_host: "wd5"
+
+  - name: "Travelers"
+    tenant: "travelers"
+    site_id: "External"
+    wd_host: "wd5"
+
+  - name: "The Hartford"
+    tenant: "thehartford"
+    site_id: "Careers_External"
+    wd_host: "wd5"
+
+  - name: "CoStar Group"
+    tenant: "costar"
+    site_id: "CoStarCareers"
+    wd_host: "wd1"
+
+  # ── Telecom ────────────────────────────────────────────────────────────────
+  - name: "AT&T"
+    tenant: "att"
+    site_id: "ATTGeneral"
+    wd_host: "wd1"
+
+  - name: "Comcast"
+    tenant: "comcast"
+    site_id: "Comcast_Careers"
+    wd_host: "wd5"
+
+  # ── Information Services ───────────────────────────────────────────────────
+  - name: "Thomson Reuters"
+    tenant: "thomsonreuters"
+    site_id: "External_Career_Site"
+    wd_host: "wd5"
+
+  - name: "Wolters Kluwer"
+    tenant: "wk"
+    site_id: "External"
+    wd_host: "wd3"
+
+  - name: "RELX"
+    tenant: "relx"
+    site_id: "relx"
+    wd_host: "wd3"
