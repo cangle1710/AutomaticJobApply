@@ -34,7 +34,7 @@ companies:
   - name: "Qualcomm"
     tenant: "qualcomm"
     site_id: "External"
-    wd_host: "wd5"
+    wd_host: "wd12"
 
   - name: "F5 Networks"
     tenant: "f5networks"
@@ -76,12 +76,7 @@ companies:
     tenant: "servicenow"
     site_id: "ServiceNowCareers"
     wd_host: "wd1"
-
-  - name: "Splunk"
-    tenant: "splunk"
-    site_id: "Splunk_Careers"
-    wd_host: "wd5"
-
+    
   - name: "VMware"
     tenant: "vmware"
     site_id: "VMware_Careers"

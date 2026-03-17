@@ -410,12 +410,12 @@ def _run_enrich(workers: int = 1) -> dict:
         return {"status": f"error: {e}"}
 
 
-def _run_score(min_score: int = 7) -> dict:
+def _run_score(min_score: int = 7, top_n: int = 10) -> dict:
     """Stage: LLM scoring — assign fit scores 1-10, then prune low-scoring jobs."""
     try:
         from applypilot.scoring.scorer import run_scoring
         run_scoring()
-        pruned = _prune_low_score_jobs(min_score=min_score)
+        pruned = _prune_low_score_jobs(min_score=min_score, top_n=top_n)
         return {"status": "ok", "pruned": pruned}
     except Exception as e:
         log.error("Scoring failed: %s", e)
@@ -561,6 +561,7 @@ def _run_stage_streaming(
     tracker: _StageTracker,
     stop_event: threading.Event,
     min_score: int = 7,
+    top_n: int = 10,
     workers: int = 1,
     validation_mode: str = "normal",
 ) -> None:
@@ -574,6 +575,8 @@ def _run_stage_streaming(
     kwargs: dict = {}
     if stage in ("score", "tailor", "cover"):
         kwargs["min_score"] = min_score
+    if stage == "score":
+        kwargs["top_n"] = top_n
     if stage in ("tailor", "cover"):
         kwargs["validation_mode"] = validation_mode
     if stage in ("discover", "enrich"):
@@ -625,8 +628,8 @@ def _run_stage_streaming(
 # Pipeline orchestrators
 # ---------------------------------------------------------------------------
 
-def _run_sequential(ordered: list[str], min_score: int, workers: int = 1,
-                    validation_mode: str = "normal") -> dict:
+def _run_sequential(ordered: list[str], min_score: int, top_n: int = 10,
+                    workers: int = 1, validation_mode: str = "normal") -> dict:
     """Execute stages one at a time (original behavior)."""
     results: list[dict] = []
     errors: dict[str, str] = {}
@@ -646,6 +649,8 @@ def _run_sequential(ordered: list[str], min_score: int, workers: int = 1,
             kwargs: dict = {}
             if name in ("score", "tailor", "cover"):
                 kwargs["min_score"] = min_score
+            if name == "score":
+                kwargs["top_n"] = top_n
             if name in ("tailor", "cover"):
                 kwargs["validation_mode"] = validation_mode
             if name in ("discover", "enrich"):
@@ -680,8 +685,8 @@ def _run_sequential(ordered: list[str], min_score: int, workers: int = 1,
     return {"stages": results, "errors": errors, "elapsed": total_elapsed}
 
 
-def _run_streaming(ordered: list[str], min_score: int, workers: int = 1,
-                   validation_mode: str = "normal") -> dict:
+def _run_streaming(ordered: list[str], min_score: int, top_n: int = 10,
+                   workers: int = 1, validation_mode: str = "normal") -> dict:
     """Execute stages concurrently with DB as conveyor belt."""
     tracker = _StageTracker()
     stop_event = threading.Event()
@@ -703,7 +708,7 @@ def _run_streaming(ordered: list[str], min_score: int, workers: int = 1,
         start_times[name] = time.time()
         t = threading.Thread(
             target=_run_stage_streaming,
-            args=(name, tracker, stop_event, min_score, workers, validation_mode),
+            args=(name, tracker, stop_event, min_score, top_n, workers, validation_mode),
             name=f"stage-{name}",
             daemon=True,
         )
@@ -747,6 +752,7 @@ def _run_streaming(ordered: list[str], min_score: int, workers: int = 1,
 def run_pipeline(
     stages: list[str] | None = None,
     min_score: int = 7,
+    top_n: int = 10,
     dry_run: bool = False,
     stream: bool = False,
     workers: int = 1,
@@ -757,6 +763,7 @@ def run_pipeline(
     Args:
         stages: List of stage names, or None / ["all"] for full pipeline.
         min_score: Minimum fit score for tailor/cover stages.
+        top_n: Maximum number of qualifying jobs to keep after scoring.
         dry_run: If True, preview stages without executing.
         stream: If True, run stages concurrently (streaming mode).
         workers: Number of parallel threads for discovery/enrichment stages.
@@ -800,10 +807,10 @@ def run_pipeline(
 
     # Execute
     if stream:
-        result = _run_streaming(ordered, min_score, workers=workers,
+        result = _run_streaming(ordered, min_score, top_n=top_n, workers=workers,
                                 validation_mode=validation_mode)
     else:
-        result = _run_sequential(ordered, min_score, workers=workers,
+        result = _run_sequential(ordered, min_score, top_n=top_n, workers=workers,
                                  validation_mode=validation_mode)
 
     # Summary table

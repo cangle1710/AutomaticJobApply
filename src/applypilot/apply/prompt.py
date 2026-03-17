@@ -168,7 +168,7 @@ def _build_screening_section(profile: dict) -> str:
     exp = profile.get("experience", {})
     city = personal.get("city", "their city")
     years = exp.get("years_of_experience_total", "multiple")
-    target_role = exp.get("target_role", personal.get("current_job_title", "software engineer"))
+    target_role = exp.get("target_role", personal.get("current_job_title", "senior software engineer"))
     work_auth = profile["work_authorization"]
 
     return f"""== SCREENING QUESTIONS (be strategic) ==

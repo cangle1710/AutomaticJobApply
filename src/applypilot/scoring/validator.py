@@ -60,29 +60,17 @@ LLM_LEAK_PHRASES: list[str] = [
 # Reasonable stretches (K8s, Terraform, Redis, Kafka etc.) are ALLOWED.
 FABRICATION_WATCHLIST: set[str] = {
     # Languages with zero relation to the candidate's stack
-    "c#", "c++", "golang", "rust", "ruby",
+    # Note: c++ and spring are intentionally excluded — candidate has C++ and Spring MVC/Boot
+    "c#", "golang", "rust", "ruby",
     "kotlin", "swift", "scala", "matlab",
     # Frameworks for wrong languages
-    "spring", "django", "rails", "angular", "vue", "svelte",
+    "django", "rails", "angular", "vue", "svelte",
     # Hard lies: certifications can't be stretched
     "certif", "certified", "pmp", "scrum master", "aws certified",
 }
 
-REQUIRED_SECTIONS: set[str] = {"SUMMARY", "TECHNICAL SKILLS", "EXPERIENCE", "PROJECTS", "EDUCATION"}
-
 
 # ── Helpers ───────────────────────────────────────────────────────────────
-
-def _build_skills_set(profile: dict) -> set[str]:
-    """Build the set of allowed skills from the profile's skills_boundary."""
-    boundary = profile.get("skills_boundary", {})
-    allowed: set[str] = set()
-    for category in boundary.values():
-        if isinstance(category, list):
-            allowed.update(s.lower().strip() for s in category)
-        elif isinstance(category, set):
-            allowed.update(s.lower().strip() for s in category)
-    return allowed
 
 
 def sanitize_text(text: str) -> str:

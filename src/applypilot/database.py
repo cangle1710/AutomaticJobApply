@@ -377,6 +377,35 @@ def store_jobs(conn: sqlite3.Connection, jobs: list[dict],
     return new, existing
 
 
+def update_job_scores(conn: sqlite3.Connection, results: list[dict]) -> int:
+    """Write scoring results back to the jobs table.
+
+    Only results without the ``_error`` flag are written.  Error results are
+    skipped so their ``fit_score`` stays NULL and they remain in the
+    ``pending_score`` pool for automatic retry on the next run.
+
+    Args:
+        conn:    Database connection.
+        results: List of dicts, each with keys: ``url``, ``score``, ``keywords``,
+                 ``reasoning``, and optionally ``_error`` (truthy to skip).
+
+    Returns:
+        Number of rows actually written (excludes skipped error results).
+    """
+    now = datetime.now(timezone.utc).isoformat()
+    written = 0
+    for r in results:
+        if r.get("_error"):
+            continue
+        conn.execute(
+            "UPDATE jobs SET fit_score = ?, score_reasoning = ?, scored_at = ? WHERE url = ?",
+            (r["score"], f"{r.get('keywords', '')}\n{r.get('reasoning', '')}", now, r["url"]),
+        )
+        written += 1
+    conn.commit()
+    return written
+
+
 def get_jobs_by_stage(conn: sqlite3.Connection | None = None,
                       stage: str = "discovered",
                       min_score: int | None = None,

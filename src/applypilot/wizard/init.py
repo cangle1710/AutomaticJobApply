@@ -202,7 +202,7 @@ def _setup_searches() -> None:
 
     if not roles:
         console.print("[yellow]No roles provided. Using a default set.[/yellow]")
-        roles = ["Software Engineer"]
+        roles = ["Senior Software Engineer"]
 
     # Build YAML content
     lines = [

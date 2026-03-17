@@ -295,3 +295,15 @@ def get_client() -> LLMClient:
         log.info("LLM provider: %s  model: %s", base_url, model)
         _instance = LLMClient(base_url, model, api_key)
     return _instance
+
+
+def reset_client() -> None:
+    """Reset the module-level LLMClient singleton.
+
+    Forces a fresh client to be created on the next ``get_client()`` call,
+    picking up any environment changes.  Useful in tests for isolation.
+    """
+    global _instance
+    if _instance is not None:
+        _instance.close()
+    _instance = None

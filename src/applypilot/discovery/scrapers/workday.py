@@ -40,6 +40,7 @@ Pass ``dry_run=True`` in the scraper config to log intent without yielding resul
 
 from __future__ import annotations
 
+import asyncio
 import hashlib
 import logging
 import re
@@ -57,6 +58,17 @@ _VALIDATE_TIMEOUT = 10   # seconds for the probe request
 
 # Ordered by likelihood — most Workday tenants are on wd5 or wd1
 _WD_HOSTS = ("wd5", "wd1", "wd2", "wd3", "wd4", "wd6", "wd12", "wd103")
+
+# Limit concurrent Playwright browser launches during parallel validation
+# (each launch is ~300 MB RAM; 4 concurrent = ~1.2 GB)
+_PW_SEM: Optional[asyncio.Semaphore] = None
+
+
+def _get_pw_sem() -> asyncio.Semaphore:
+    global _PW_SEM
+    if _PW_SEM is None:
+        _PW_SEM = asyncio.Semaphore(4)
+    return _PW_SEM
 
 
 # ---------------------------------------------------------------------------
@@ -157,6 +169,58 @@ class WorkdayScraper(BaseScraper):
             )
         except Exception:
             pass  # Best-effort; proceed even if warm-up fails
+
+    async def _playwright_warm_session(self, base_url: str) -> bool:
+        """Use a real Chromium browser to obtain a PLAY_SESSION cookie.
+
+        httpx requests return 406 from Cloudflare's bot detection on many Workday
+        tenants, so no PLAY_SESSION is ever set and subsequent POSTs get 422 CSRF
+        errors.  Playwright passes Cloudflare's JS/TLS fingerprint checks and
+        retrieves a genuine Workday session, which is then injected into the
+        shared httpx cookie jar so API POSTs work.
+
+        Uses a module-level semaphore to cap concurrent browser launches at 4.
+        """
+        from ..http_client import PlaywrightWrapper
+
+        async with _get_pw_sem():
+            try:
+                async with PlaywrightWrapper() as pw:
+                    async with pw.new_context() as ctx:
+                        page = await ctx.new_page()
+                        # Try the careers listing page; many return 500 for
+                        # unknown site_ids but still set PLAY_SESSION. Fall
+                        # back to the domain root if that raises.
+                        for url in (f"{base_url}/{self._site_id}", base_url + "/"):
+                            try:
+                                await page.goto(
+                                    url,
+                                    wait_until="domcontentloaded",
+                                    timeout=20_000,
+                                )
+                                break
+                            except Exception:
+                                continue
+                        await page.wait_for_timeout(500)
+
+                        cookies = await ctx.cookies()
+                        if self.client._client:
+                            for c in cookies:
+                                self.client._client.cookies.set(
+                                    c["name"], c["value"],
+                                    domain=c.get("domain", ""),
+                                )
+                        play_session = any(c["name"] == "PLAY_SESSION" for c in cookies)
+                        self.logger.debug(
+                            "  Playwright warm: %s — %d cookies, PLAY_SESSION=%s",
+                            self._name, len(cookies), play_session,
+                        )
+                        return play_session
+            except Exception as exc:
+                self.logger.debug(
+                    "  Playwright warm-up failed for %s: %s", self._name, exc
+                )
+                return False
 
     async def _discover_host(self) -> bool:
         """Try common wd_hosts when the configured one causes a connection error.
@@ -417,13 +481,48 @@ class WorkdayScraper(BaseScraper):
                 )
             return is_valid
         except Exception as exc:
-            # Extract status code if available (httpx.HTTPStatusError), otherwise type name
             status = getattr(getattr(exc, "response", None), "status_code", None)
-            if status is None:
-                # Network-level failure (domain unreachable) — the wd_host may be wrong;
-                # try all known hosts before giving up
-                if await self._discover_host():
-                    return True
+
+            # 422 = CSRF failure — likely no PLAY_SESSION because Cloudflare blocked
+            # the httpx warm-up.  Try a real browser to get a session, then retry.
+            if status == 422:
+                has_session = bool(
+                    self.client._client
+                    and self.client._client.cookies.get("PLAY_SESSION")
+                )
+                if not has_session:
+                    self.logger.debug(
+                        "  422 without PLAY_SESSION — trying Playwright warm-up for %s",
+                        self._name,
+                    )
+                    await self._playwright_warm_session(self._base_url)
+                    try:
+                        resp = await self.client.post(
+                            self._search_url,
+                            json={"appliedFacets": {}, "limit": 1, "offset": 0,
+                                  "searchText": "engineer"},
+                            headers={
+                                "Accept": "application/json",
+                                "Content-Type": "application/json",
+                                "Origin": self._base_url,
+                                "Referer": f"{self._base_url}/{self._site_id}",
+                            },
+                            timeout=_VALIDATE_TIMEOUT,
+                        )
+                        data = resp.json()
+                        if "total" in data or "jobPostings" in data:
+                            self.logger.info(
+                                "  [ok] %s  (Playwright warm-up)", self._name
+                            )
+                            return True
+                    except Exception:
+                        pass
+
+            # For any failure (HTTP or network), try all known wd_hosts before
+            # giving up — fixes tenants where the YAML has the wrong wd_host.
+            if await self._discover_host():
+                return True
+
             self.logger.debug(
                 "  [skip] %s  (%s)",
                 self._name, f"HTTP {status}" if status else type(exc).__name__,

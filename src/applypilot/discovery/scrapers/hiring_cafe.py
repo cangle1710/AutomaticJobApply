@@ -14,7 +14,7 @@ Algolia query endpoint::
         x-algolia-api-key:        {PUBLIC_KEY}
     Body (JSON):
         {
-          "query":        "software engineer",
+          "query":        "Senior software engineer",
           "hitsPerPage":  50,
           "page":         0,
           "filters":      "remote:true"    # optional

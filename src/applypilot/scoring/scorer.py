@@ -5,14 +5,11 @@ job description. All personal data is loaded at runtime from the user's
 profile and resume file.
 """
 
-import json
 import logging
 import re
 import time
-from datetime import datetime, timezone
-
-from applypilot.config import RESUME_PATH, load_profile
-from applypilot.database import get_connection, get_jobs_by_stage
+from applypilot.config import RESUME_PATH
+from applypilot.database import get_connection, get_jobs_by_stage, update_job_scores
 from applypilot.llm import get_client
 
 log = logging.getLogger(__name__)
@@ -98,15 +95,19 @@ def score_job(resume_text: str, job: dict) -> dict:
         return _parse_score_response(response)
     except Exception as e:
         log.error("LLM error scoring job '%s': %s", job.get("title", "?"), e)
-        return {"score": 0, "keywords": "", "reasoning": f"LLM error: {e}"}
+        return {"score": 0, "keywords": "", "reasoning": f"LLM error: {e}", "_error": True}
 
 
-def run_scoring(limit: int = 0, rescore: bool = True) -> dict:
-    """Score unscored jobs that have full descriptions.
+def run_scoring(limit: int = 0, rescore: bool = False) -> dict:
+    """Score jobs that have scoreable descriptions.
+
+    Workday jobs (strategy='native_scraper') are scored using their discovery-time
+    description. All other jobs (jobspy, linkedin, indeed) must have full_description
+    populated by the enrich stage first.
 
     Args:
-        limit: Maximum number of jobs to score in this run.
-        rescore: If True, re-score all jobs (not just unscored ones).
+        limit: Maximum number of jobs to score in this run. 0 = no limit.
+        rescore: If True, re-score already-scored jobs. Defaults to False.
 
     Returns:
         {"scored": int, "errors": int, "elapsed": float, "distribution": list}
@@ -149,17 +150,14 @@ def run_scoring(limit: int = 0, rescore: bool = True) -> dict:
 
         log.info(
             "[%d/%d] score=%d  %s",
-            completed, len(jobs), result["score"], job.get("title", "?")[:60],
+            completed, len(jobs), result["score"], (job.get("title") or "?")[:60],
         )
 
-    # Write scores to DB
-    now = datetime.now(timezone.utc).isoformat()
-    for r in results:
-        conn.execute(
-            "UPDATE jobs SET fit_score = ?, score_reasoning = ?, scored_at = ? WHERE url = ?",
-            (r["score"], f"{r['keywords']}\n{r['reasoning']}", now, r["url"]),
-        )
-    conn.commit()
+    # Write scores to DB — skip LLM errors so fit_score stays NULL (remains pending_score for retry)
+    written = update_job_scores(conn, results)
+    skipped = len(results) - written
+    if skipped:
+        log.warning("%d job(s) not saved due to LLM errors — re-run scoring to retry them", skipped)
 
     elapsed = time.time() - t0
     log.info("Done: %d scored in %.1fs (%.1f jobs/sec)", len(results), elapsed, len(results) / elapsed if elapsed > 0 else 0)

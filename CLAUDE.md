@@ -12,6 +12,7 @@
 - **Never bypass the DB conveyor belt.** Stages communicate only through SQLite, never by passing objects in memory across stage boundaries.
 - **Each stage must be independently runnable.** `applypilot run score` must work without having run `tailor` first.
 - `pipeline.py` is the only place that imports and sequences stages. Never import one stage from another.
+- **Auto-chaining is allowed only inside `_run_discover()`**, which cascades into `_run_enrich()` then `_run_score()` as a convenience for the common full-pipeline case. No other stage function may cascade into another stage. This exception is intentional and must not be extended.
 - `config.py` is the single source of all paths, env vars, and defaults. Never hardcode paths or env var names anywhere else.
 - `database.py` owns the schema. Never run raw `CREATE TABLE` or `ALTER TABLE` outside of `database.py`.
 - Thread-local SQLite connections (`get_connection()`) must be used in all threaded code. Never share a connection across threads.
@@ -79,6 +80,7 @@
 - `url` is the deduplication key. It must be non-empty on every stored job. Discard records with no URL.
 - `strategy` column must be set on every INSERT: `"jobspy"`, `"workday"`, `"smartextract"`, or `"native_scraper"`.
 - Never change the `store_jobspy_results()` signature — it is called from multiple places.
+- `_prune_low_score_jobs` enforces a `top_n=10` cap (keeps the 10 highest-scoring jobs per run). Any change to this limit must be intentional and discussed — it directly controls downstream LLM spend in tailor/cover stages.
 
 ---
 
@@ -107,6 +109,7 @@
 - **Do NOT** import `pipeline.py` from anywhere. It is a top-level orchestrator only.
 - **Do NOT** add `verbose` print statements or progress bars inside library code. Use `logging`.
 - **Do NOT** write a new scraper that inherits directly from another scraper. Always inherit from `BaseScraper`.
+- **Do NOT** store `asyncio.Semaphore`, `asyncio.Lock`, or other event-loop-bound primitives as module-level globals with lazy init. A stale primitive from a replaced event loop will deadlock silently. Pass them as constructor arguments or initialize inside the coroutine scope.
 
 ---
 
@@ -114,6 +117,7 @@
 
 1. **Indeed scraper** — primary native scraper, mosaic JSON extraction + HTML fallback both implemented. Validate against live Indeed pages and fix selectors if broken.
 2. **LinkedIn scraper** — guest endpoint wired. Priority next step: implement `_parse_guest_html()` and add authenticated cookie support.
-3. **HiringCafe scraper** — Algolia pagination wired. Blocked on `_resolve_algolia_key()`. Either implement page-source extraction or accept key via `config["hiring_cafe_algolia_key"]`.
-4. **Bridge to pipeline** — `_store_listings()` helper and `_run_discover()` integration block are documented in CLAUDE.md (see Option 2 in session history). Wire these in once Indeed is validated end-to-end.
-5. **Do not touch** `jobspy.py`, `workday.py`, `smartextract.py`, or any `scoring/` module until the above is complete.
+3. **HiringCafe scraper** — Algolia pagination implemented and fixed. Algolia key is resolved via page-source extraction or accepted via `config["hiring_cafe_algolia_key"]`.
+4. **Workday scraper** — Playwright warm-up session (`_playwright_warm_session`) added to handle Cloudflare 422/CSRF failures. Module-level `_PW_SEM` semaphore needs to be refactored to constructor injection (violates Anti-Patterns rule on event-loop-bound globals).
+5. **Bridge to pipeline** — `_run_discover()` now auto-chains enrich + score. Validate end-to-end with Indeed before extending this to other scrapers.
+6. **Do not touch** `jobspy.py` or `smartextract.py` until the above is complete.
