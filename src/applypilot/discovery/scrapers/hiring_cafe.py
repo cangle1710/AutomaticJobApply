@@ -173,20 +173,47 @@ class HiringCafeScraper(BaseScraper):
     # ------------------------------------------------------------------
 
     async def _resolve_algolia_key(self) -> str:
-        """Scrape the Hiring Cafe homepage to extract the live Algolia public key.
+        """Use Playwright to intercept the Algolia network request that hiring.cafe
+        fires on load, then read the API key directly from the request headers.
 
-        The key is embedded in one of the ``<script>`` tags as:
-            ``apiKey":"<32-char-alphanum>"``
-
-        TODO: implement this method.
-            1. ``resp = await self.client.get(self._HOMEPAGE)``
-            2. Regex: ``r'apiKey["\s:]+([a-zA-Z0-9]{32})'``
-            3. Cache result on ``self._api_key`` so we only fetch once per run.
+        Direct httpx requests to hiring.cafe return 403 (bot detection), so we
+        use a real browser and capture the outgoing Algolia call instead of
+        regex-parsing minified JS bundles.
         """
-        raise NotImplementedError(
-            "Algolia key resolution not yet implemented.  "
-            "Set 'hiring_cafe_algolia_key' in your scraper config, "
-            "or implement _resolve_algolia_key."
+        from ..http_client import PlaywrightWrapper
+
+        captured: list[str] = []
+
+        async with PlaywrightWrapper() as pw:
+            async with pw.new_context() as ctx:
+                page = await ctx.new_page()
+
+                def _on_request(request) -> None:
+                    if "algolia.net" in request.url:
+                        key = request.headers.get("x-algolia-api-key", "")
+                        if key and len(key) >= 20:
+                            captured.append(key)
+
+                page.on("request", _on_request)
+                try:
+                    await page.goto(
+                        self._HOMEPAGE,
+                        wait_until="domcontentloaded",
+                        timeout=30_000,
+                    )
+                    # Give the page time to fire its initial Algolia search
+                    await page.wait_for_timeout(3_000)
+                except Exception:
+                    pass
+
+        if captured:
+            key = captured[0]
+            self.logger.debug("HiringCafe: captured Algolia key (%s...)", key[:8])
+            return key
+
+        raise ValueError(
+            "Could not capture Algolia API key from hiring.cafe network requests. "
+            "Set 'hiring_cafe_algolia_key' in your scraper config to provide it manually."
         )
 
 

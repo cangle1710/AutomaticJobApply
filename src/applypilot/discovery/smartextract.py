@@ -340,6 +340,26 @@ def collect_page_intelligence(url: str, headless: bool = True) -> dict:
 
 # -- Judge: filter API responses ---------------------------------------------
 
+# URL substrings that are definitively not job data — skip the LLM for these
+_JUDGE_SKIP_PATTERNS = (
+    "sentry.io", "newrelic.com", "datadog.com", "rollbar.com",
+    "google-analytics", "analytics.", "segment.io", "mixpanel.com", "amplitude.com",
+    "doubleclick.net", "facebook.com/tr", "twitter.com/i/",
+    "launchdarkly.com", "optimizely.com", "split.io",
+    "/auth/", "/login", "/logout", "oauth", "/identity",
+    "track/identity", "/track?", "/identify", "/beacon",
+    "ingest.us.sentry", "ingest.sentry",
+    "/ping", "/heartbeat", "/health",
+    "cdn.", "cloudfront.net", "fonts.googleapis",
+)
+
+
+def _is_obviously_irrelevant(url: str) -> bool:
+    """Return True if the URL is definitively not job listing data."""
+    u = url.lower()
+    return any(pat in u for pat in _JUDGE_SKIP_PATTERNS)
+
+
 JUDGE_PROMPT = """You are filtering intercepted API responses from a job listings website.
 Decide if this API response contains actual job listing data (titles, companies, locations, etc).
 
@@ -360,7 +380,11 @@ No explanation, no markdown, no thinking."""
 
 
 def judge_api_responses(api_responses: list[dict]) -> list[dict]:
-    """Use the LLM to filter API responses, keeping only job-relevant ones."""
+    """Filter API responses, keeping only job-relevant ones.
+
+    Pre-filters obvious noise (analytics, auth, tracking) by URL pattern
+    before calling the LLM, avoiding unnecessary slow LLM calls.
+    """
     if not api_responses:
         return []
 
@@ -368,6 +392,10 @@ def judge_api_responses(api_responses: list[dict]) -> list[dict]:
     relevant: list[dict] = []
 
     for resp in api_responses:
+        url = resp.get("url", "")
+        if _is_obviously_irrelevant(url):
+            log.debug("Judge: %s -> DROP (pattern match)", url[:80])
+            continue
         fields = ""
         sample = ""
         resp_type = resp.get("type", "unknown")
@@ -635,6 +663,33 @@ Return ONLY valid JSON, no explanation, no markdown.
 PAGE HTML:
 {page_html}"""
 
+CARD_EXAMPLES_SELECTOR_PROMPT = """You are a web scraping engineer. Below are HTML snippets of 2-3 individual job listing cards extracted from a job board.
+
+Your task: Write CSS selectors to extract fields from these cards.
+
+Card structure detected on page: parent={parent_selector}  child={child_selector}  ({count} cards total)
+
+--- CARD EXAMPLES ---
+{examples}
+--- END EXAMPLES ---
+
+Return a JSON object with these exact keys:
+- "job_card": CSS selector that matches EACH card element (typically the child selector above, or a refinement)
+- "title": selector RELATIVE to the card for the job title text
+- "salary": selector relative to card for salary text, or null if not present
+- "description": selector relative to card for description snippet, or null
+- "location": selector relative to card for location text, or null
+- "url": selector relative to card for the <a> link (we extract its href)
+
+Rules:
+- Prefer data-testid, data-id, semantic tags (h2, h3, article, section) over div
+- NEVER use hashed/generated class names (sc-*, css-*, random strings like fJyWhK)
+- Max 2 selector levels deep
+- "url" must target an <a> element
+
+Return ONLY the JSON object. No explanation, no markdown, no code fences.
+Example output: {{"job_card":"li.job-row","title":"h3","salary":null,"description":"p.summary","location":"span.location","url":"a"}}"""
+
 
 # -- LLM helpers -------------------------------------------------------------
 
@@ -781,17 +836,44 @@ def execute_api_response(intel: dict, plan: dict) -> list[dict]:
 
 
 def execute_css_selectors(intel: dict) -> tuple[dict, list[dict]]:
-    """Phase 2: Send full cleaned page HTML to LLM for card detection + selector generation.
-    Returns (selectors, jobs)."""
+    """Phase 2: Generate CSS selectors via LLM, then apply them to extract jobs.
+
+    When Phase 1 detected repeating card elements, feeds only the 2-3 card
+    examples to the LLM (small, focused input). Falls back to full cleaned page
+    HTML when no card candidates were found.
+
+    Returns (selectors, jobs).
+    """
     full_html = intel.get("full_html", "")
-    if not full_html:
-        log.warning("No page HTML captured")
-        return {}, []
+    card_candidates = intel.get("card_candidates", [])
 
-    cleaned = clean_page_html(full_html)
-    log.info("Page HTML: %s -> %s chars", f"{len(full_html):,}", f"{len(cleaned):,}")
+    if card_candidates:
+        # Use the highest-scored card candidate from Phase 1 — already extracted
+        best = card_candidates[0]
+        examples_parts = []
+        for i, ex_html in enumerate(best["examples"]):
+            cleaned_ex = clean_card_html(ex_html)
+            examples_parts.append(f"[Card {i+1}]\n{cleaned_ex}")
+        examples_str = "\n\n".join(examples_parts)[:8000]
 
-    prompt = FULL_PAGE_SELECTOR_PROMPT.format(page_html=cleaned)
+        log.info(
+            "Phase 2: using %d card examples (%s chars) from %s > %s",
+            len(best["examples"]), f"{len(examples_str):,}",
+            best["parent_selector"], best["child_selector"],
+        )
+        prompt = CARD_EXAMPLES_SELECTOR_PROMPT.format(
+            parent_selector=best["parent_selector"],
+            child_selector=best["child_selector"],
+            count=best["total_children"],
+            examples=examples_str,
+        )
+    else:
+        if not full_html:
+            log.warning("No page HTML and no card candidates — cannot run Phase 2")
+            return {}, []
+        cleaned = clean_page_html(full_html)
+        log.info("Phase 2: full page HTML %s -> %s chars (no card candidates)", f"{len(full_html):,}", f"{len(cleaned):,}")
+        prompt = FULL_PAGE_SELECTOR_PROMPT.format(page_html=cleaned)
 
     try:
         raw, elapsed, meta = ask_llm(prompt)

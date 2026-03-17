@@ -37,7 +37,7 @@ console = Console()
 STAGE_ORDER = ("discover", "enrich", "score", "tailor", "cover", "pdf")
 
 STAGE_META: dict[str, dict] = {
-    "discover": {"desc": "Job discovery (Workday 100 companies + JobSpy + smart extract)"},
+    "discover": {"desc": "Job discovery (Workday + JobSpy: LinkedIn/Indeed/ZipRecruiter + HiringCafe + SmartExtract)"},
     "enrich":   {"desc": "Detail enrichment (full descriptions + apply URLs)"},
     "score":    {"desc": "LLM scoring (fit 1-10)"},
     "tailor":   {"desc": "Resume tailoring (LLM + validation)"},
@@ -61,11 +61,17 @@ _UPSTREAM: dict[str, str | None] = {
 # Individual stage runners
 # ---------------------------------------------------------------------------
 
-def _store_job_listings(listings: list) -> tuple[int, int]:
+def _store_job_listings(
+    listings: list,
+    strategy: str = "workday_api",
+    default_site: str = "",
+) -> tuple[int, int]:
     """Persist a list of JobListing objects into the jobs table.
 
-    Maps the unified JobListing schema to the existing DB columns.
-    Workday listing URLs double as application URLs (direct apply link).
+    Args:
+        listings:     JobListing objects to store.
+        strategy:     Value for the strategy column (e.g. "workday_api", "hiring_cafe").
+        default_site: Fallback site label when job.company is empty.
 
     Returns:
         (new_count, duplicate_count)
@@ -105,11 +111,11 @@ def _store_job_listings(listings: list) -> tuple[int, int]:
                     salary,
                     description,
                     job.location or None,
-                    job.company or "Workday",   # company name as site label
-                    "workday_api",
+                    job.company or default_site or strategy,
+                    strategy,
                     now,
                     full_description,
-                    job.url,                    # Workday URL = direct apply link
+                    job.url,
                     detail_scraped_at,
                 ),
             )
@@ -120,7 +126,7 @@ def _store_job_listings(listings: list) -> tuple[int, int]:
             existing += 1
 
     conn.commit()
-    log.info("  Workday stored: %d new  |  %d duplicates", new, existing)
+    log.info("  Stored [%s]: %d new  |  %d duplicates", strategy, new, existing)
     return new, existing
 
 
@@ -159,8 +165,10 @@ def _run_workday_native() -> dict:
         return {"status": "skipped", "new": 0, "existing": 0}
 
     # Workday doesn't filter by location at the API level.
-    # Pass one entry per unique query string (no location duplication).
-    queries = [{"query": q["query"], "location": ""} for q in tier_queries]
+    # Limit pages per company to control volume: 1 page = 20 jobs per company.
+    # Override with workday_max_pages_per_company in searches.yaml.
+    max_pages = search_cfg.get("workday_max_pages_per_company", 1)
+    queries = [{"query": q["query"], "location": "", "max_pages": max_pages} for q in tier_queries]
 
     companies = load_workday_companies()
     if not companies:
@@ -218,6 +226,98 @@ def _run_workday_native() -> dict:
     }
 
 
+def _run_hiring_cafe() -> dict:
+    """Run the HiringCafe async scraper and store results."""
+    from applypilot.config import load_search_config
+    from applypilot.discovery.orchestrator import run_scrapers
+
+    search_cfg = load_search_config() or {}
+    queries_cfg = search_cfg.get("queries", [])
+    if not queries_cfg:
+        return {"status": "skipped (no queries)", "new": 0, "existing": 0}
+
+    proxy = search_cfg.get("proxy")
+    max_tier = search_cfg.get("workday_max_tier", 1)
+    tier_queries = [q for q in queries_cfg if q.get("tier", 99) <= max_tier] or queries_cfg
+    # Limit to first 5 queries to keep HiringCafe volume manageable
+    queries = [{"query": q["query"], "location": ""} for q in tier_queries[:5]]
+
+    try:
+        listings = asyncio.run(
+            run_scrapers(
+                queries=queries,
+                sources=["hiring_cafe"],
+                proxy=proxy,
+                rate=2.0,
+                burst=5,
+            )
+        )
+    except Exception as e:
+        return {"status": f"error: {e}", "new": 0, "existing": 0}
+
+    if not listings:
+        return {"status": "ok", "new": 0, "existing": 0}
+
+    new, existing = _store_job_listings(listings, strategy="hiring_cafe", default_site="HiringCafe")
+    return {"status": "ok", "new": new, "existing": existing}
+
+
+def _prune_low_score_jobs(min_score: int = 7, top_n: int = 50) -> int:
+    """Delete scored jobs below min_score and cap to top N qualifying globally.
+
+    Called after the score stage to keep the pipeline focused on the best
+    matches and avoid doing LLM tailoring/cover work on mediocre fits.
+
+    Args:
+        min_score: Minimum fit_score to keep.
+        top_n:     Global cap on qualifying jobs after pruning.
+
+    Returns:
+        Number of jobs deleted.
+    """
+    conn = get_connection()
+
+    # Delete all jobs scored below the threshold
+    cur = conn.execute(
+        "DELETE FROM jobs WHERE fit_score IS NOT NULL AND fit_score < ?",
+        (min_score,),
+    )
+    deleted = cur.rowcount
+
+    # If more than top_n qualifying jobs remain, keep only the top N by score
+    qualifying = conn.execute(
+        "SELECT COUNT(*) FROM jobs WHERE fit_score >= ?", (min_score,)
+    ).fetchone()[0]
+
+    if qualifying > top_n:
+        to_prune = conn.execute(
+            "SELECT url FROM jobs WHERE fit_score >= ? "
+            "ORDER BY fit_score DESC, discovered_at DESC "
+            "LIMIT -1 OFFSET ?",
+            (min_score, top_n),
+        ).fetchall()
+        for (url,) in to_prune:
+            conn.execute("DELETE FROM jobs WHERE url = ?", (url,))
+        deleted += len(to_prune)
+
+    conn.commit()
+
+    if deleted:
+        remaining = conn.execute(
+            "SELECT COUNT(*) FROM jobs WHERE fit_score >= ?", (min_score,)
+        ).fetchone()[0]
+        log.info(
+            "Score pruning: removed %d jobs → %d qualifying (score ≥ %d)",
+            deleted, remaining, min_score,
+        )
+        console.print(
+            f"  [dim]Score pruning: kept {remaining} qualifying jobs "
+            f"(score ≥ {min_score}, top {top_n})[/dim]"
+        )
+
+    return deleted
+
+
 def _db_job_count() -> int:
     """Return current total job count from the database."""
     try:
@@ -227,17 +327,17 @@ def _db_job_count() -> int:
 
 
 def _run_discover(workers: int = 1) -> dict:
-    """Stage: Job discovery — Workday (100 companies), JobSpy, smart-extract."""
+    """Stage: Job discovery — Workday, JobSpy (LinkedIn/Indeed/ZipRecruiter), HiringCafe, SmartExtract."""
     reset_db()
     console.print("  [dim]Database cleared for fresh run.[/dim]")
 
-    stats: dict = {"workday_native": None, "jobspy": None, "smartextract": None}
+    stats: dict = {"workday_native": None, "jobspy": None, "hiring_cafe": None, "smartextract": None}
     stage_t0 = time.time()
 
     log.info("════ DISCOVER STAGE START ════")
 
-    # ── 1. Workday universal scraper (runs first: validates + scrapes 100 companies)
-    log.info("── [1/3] Workday universal scraper ──")
+    # ── 1. Workday universal scraper (validates + scrapes companies, 1 page each)
+    log.info("── [1/4] Workday universal scraper ──")
     t0 = time.time()
     try:
         result = _run_workday_native()
@@ -246,11 +346,11 @@ def _run_discover(workers: int = 1) -> dict:
         log.error("Workday native scraper failed: %s", e)
         console.print(f"  [red]Workday error:[/red] {e}")
         stats["workday_native"] = f"error: {e}"
-    log.info("── [1/3] done in %.0fs  |  DB total: %d jobs ──", time.time() - t0, _db_job_count())
+    log.info("── [1/4] done in %.0fs  |  DB total: %d jobs ──", time.time() - t0, _db_job_count())
 
-    # ── 2. JobSpy (LinkedIn + Indeed)
-    log.info("── [2/3] JobSpy (LinkedIn + Indeed) ──")
-    console.print("  [cyan]JobSpy (LinkedIn + Indeed)...[/cyan]")
+    # ── 2. JobSpy (LinkedIn + Indeed + ZipRecruiter)
+    log.info("── [2/4] JobSpy (LinkedIn + Indeed + ZipRecruiter) ──")
+    console.print("  [cyan]JobSpy (LinkedIn + Indeed + ZipRecruiter)...[/cyan]")
     t0 = time.time()
     try:
         from applypilot.discovery.jobspy import run_discovery
@@ -260,10 +360,25 @@ def _run_discover(workers: int = 1) -> dict:
         log.error("JobSpy crawl failed: %s", e)
         console.print(f"  [red]JobSpy error:[/red] {e}")
         stats["jobspy"] = f"error: {e}"
-    log.info("── [2/3] done in %.0fs  |  DB total: %d jobs ──", time.time() - t0, _db_job_count())
+    log.info("── [2/4] done in %.0fs  |  DB total: %d jobs ──", time.time() - t0, _db_job_count())
 
-    # ── 3. Smart extract (AI-powered direct career sites)
-    log.info("── [3/3] Smart extract (direct career sites) ──")
+    # ── 3. HiringCafe (Algolia-backed job board)
+    log.info("── [3/4] HiringCafe ──")
+    console.print("  [cyan]HiringCafe...[/cyan]")
+    t0 = time.time()
+    try:
+        result = _run_hiring_cafe()
+        stats["hiring_cafe"] = result.get("status", "ok")
+        if result.get("new", 0) > 0:
+            console.print(f"  [cyan]HiringCafe:[/cyan] {result['new']} new jobs")
+    except Exception as e:
+        log.error("HiringCafe scraper failed: %s", e)
+        console.print(f"  [red]HiringCafe error:[/red] {e}")
+        stats["hiring_cafe"] = f"error: {e}"
+    log.info("── [3/4] done in %.0fs  |  DB total: %d jobs ──", time.time() - t0, _db_job_count())
+
+    # ── 4. Smart extract (AI-powered direct career sites)
+    log.info("── [4/4] Smart extract (direct career sites) ──")
     console.print("  [cyan]Smart extract (direct career sites)...[/cyan]")
     t0 = time.time()
     try:
@@ -274,7 +389,7 @@ def _run_discover(workers: int = 1) -> dict:
         log.error("Smart extract failed: %s", e)
         console.print(f"  [red]Smart extract error:[/red] {e}")
         stats["smartextract"] = f"error: {e}"
-    log.info("── [3/3] done in %.0fs  |  DB total: %d jobs ──", time.time() - t0, _db_job_count())
+    log.info("── [4/4] done in %.0fs  |  DB total: %d jobs ──", time.time() - t0, _db_job_count())
 
     total = _db_job_count()
     log.info(
@@ -295,12 +410,13 @@ def _run_enrich(workers: int = 1) -> dict:
         return {"status": f"error: {e}"}
 
 
-def _run_score() -> dict:
-    """Stage: LLM scoring — assign fit scores 1-10."""
+def _run_score(min_score: int = 7) -> dict:
+    """Stage: LLM scoring — assign fit scores 1-10, then prune low-scoring jobs."""
     try:
         from applypilot.scoring.scorer import run_scoring
         run_scoring()
-        return {"status": "ok"}
+        pruned = _prune_low_score_jobs(min_score=min_score)
+        return {"status": "ok", "pruned": pruned}
     except Exception as e:
         log.error("Scoring failed: %s", e)
         return {"status": f"error: {e}"}
@@ -456,8 +572,9 @@ def _run_stage_streaming(
     """
     runner = _STAGE_RUNNERS[stage]
     kwargs: dict = {}
-    if stage in ("tailor", "cover"):
+    if stage in ("score", "tailor", "cover"):
         kwargs["min_score"] = min_score
+    if stage in ("tailor", "cover"):
         kwargs["validation_mode"] = validation_mode
     if stage in ("discover", "enrich"):
         kwargs["workers"] = workers
@@ -527,8 +644,9 @@ def _run_sequential(ordered: list[str], min_score: int, workers: int = 1,
 
         try:
             kwargs: dict = {}
-            if name in ("tailor", "cover"):
+            if name in ("score", "tailor", "cover"):
                 kwargs["min_score"] = min_score
+            if name in ("tailor", "cover"):
                 kwargs["validation_mode"] = validation_mode
             if name in ("discover", "enrich"):
                 kwargs["workers"] = workers

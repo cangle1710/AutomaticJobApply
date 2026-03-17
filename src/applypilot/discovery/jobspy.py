@@ -389,7 +389,7 @@ def _full_crawl(
 ) -> dict:
     """Run all search queries from search config across all locations."""
     if sites is None:
-        sites = ["indeed", "linkedin"]
+        sites = ["indeed", "linkedin", "zip_recruiter"]
 
     # Build search combinations from config
     queries = search_cfg.get("queries", [])
