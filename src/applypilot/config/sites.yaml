@@ -1,0 +1,141 @@
+# Direct career site registry for ApplyPilot
+# US-only. Canadian and EU job boards removed.
+# Use {location_encoded} placeholder for location (URL-encoded).
+# Use {query_encoded} placeholder for search terms (URL-encoded).
+
+# ── Manual-Only ATS Domains ──────────────────────────────────────────────
+# These ATS platforms have unsolvable CAPTCHAs. Jobs routing through them
+# are flagged as "manual" during apply — bot skips, user applies by hand.
+manual_ats:
+  - "ibegin.tcsapps.com"       # TCS iBegin — unsolvable CAPTCHA every time
+
+# ── Blocked sites — too problematic for automation ───────────────────────
+blocked:
+  sites:
+    - "glassdoor"
+    - "google"
+    - "accenture"
+    - "AccentureCareers"
+  url_patterns:
+    - "%glassdoor%"
+    - "%google.com/about/careers%"
+    - "%google.jobs%"
+    - "%accenture%"
+
+# ── Blocked SSO domains — cannot authenticate through these ──────────────
+blocked_sso:
+  - "accounts.google.com"
+  - "login.microsoftonline.com"
+  - "okta.com"
+  - "auth0.com"
+  - "sso.cisco.com"
+
+# ── Base URLs for URL resolution ─────────────────────────────────────────
+# Used by detail enrichment to resolve relative URLs scraped from sites.
+base_urls:
+  "BuiltIn Remote": "https://builtin.com"
+  "Hacker News Jobs": "https://news.ycombinator.com/"
+  "RemoteOK": null
+  "WeWorkRemotely": "https://weworkremotely.com"
+  "Startup.jobs": "https://startup.jobs"
+  "Nodesk": "https://nodesk.co"
+  "JustRemote": "https://justremote.co"
+  "Arc.dev": "https://arc.dev"
+  "Himalayas": "https://himalayas.app"
+  "Techstars Jobs": "https://www.techstars.com"
+
+sites:
+  # ── Searchable sites (URL includes query + location params) ──────────
+
+  - name: "Dice"
+    url: "https://www.dice.com/jobs?q={query_encoded}&location=Remote&pageSize=100"
+    type: search
+
+  - name: "SimplyHired"
+    url: "https://www.simplyhired.com/search?q={query_encoded}&l={location_encoded}"
+    type: search
+
+  - name: "PowerToFly"
+    url: "https://powertofly.com/jobs/?keywords={query_encoded}&remote=true"
+    type: search
+
+  - name: "Techstars Jobs"
+    url: "https://jobs.techstars.com/jobs?keywords={query_encoded}"
+    type: search
+
+  - name: "Startup.jobs"
+    url: "https://startup.jobs/?q={query_encoded}&remote=true"
+    type: search
+
+  - name: "Wellfound"
+    url: "https://wellfound.com/role/l/software-engineer/united-states"
+    type: search
+
+  - name: "Otta"
+    url: "https://otta.com/jobs/all?title=software+engineer&remote=true"
+    type: search
+
+  # ── Static sites (no query params, scraped once) ─────────────────────
+  # Remote-first boards
+
+  - name: "RemoteOK"
+    url: "https://remoteok.com/remote-dev-jobs"
+    type: static
+
+  - name: "WeWorkRemotely"
+    url: "https://weworkremotely.com/categories/remote-programming-jobs"
+    type: static
+
+  - name: "Remotive"
+    url: "https://remotive.com/remote-jobs/software-dev"
+    type: static
+
+  - name: "JustRemote"
+    url: "https://justremote.co/remote-developer-jobs"
+    type: static
+
+  - name: "Himalayas"
+    url: "https://himalayas.app/jobs/developer"
+    type: static
+
+  - name: "Working Nomads"
+    url: "https://www.workingnomads.com/jobs?category=development"
+    type: static
+
+  - name: "Remote.co"
+    url: "https://remote.co/remote-jobs/developer/"
+    type: static
+
+  - name: "Nodesk"
+    url: "https://nodesk.co/remote-jobs/"
+    type: static
+
+  - name: "DynamiteJobs"
+    url: "https://dynamitejobs.com/category/remote-development-jobs"
+    type: static
+
+  - name: "4DayWeek"
+    url: "https://4dayweek.io/remote-jobs/software-engineer"
+    type: static
+
+  # General tech (no search param)
+
+  - name: "Hacker News Jobs"
+    url: "https://news.ycombinator.com/jobs"
+    type: static
+
+  - name: "BuiltIn Remote"
+    url: "https://builtin.com/jobs/remote/dev-engineering"
+    type: static
+
+  - name: "Arc.dev"
+    url: "https://arc.dev/remote-jobs/developer"
+    type: static
+
+  - name: "TopStartups"
+    url: "https://topstartups.io/jobs/?job_location=Remote"
+    type: static
+
+  - name: "Jobspresso"
+    url: "https://jobspresso.co/remote-work/remote-software-development/"
+    type: static

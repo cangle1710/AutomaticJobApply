@@ -1,0 +1,434 @@
+# Workday company registry for ApplyPilot universal Workday scraper.
+# Each entry is validated at runtime before a full scrape.
+# wd_host: the numeric suffix in {tenant}.{wd_host}.myworkdayjobs.com
+#
+# To add a company:
+#   1. Find their Workday URL: https://{tenant}.{wd_host}.myworkdayjobs.com
+#   2. Copy the URL structure to get tenant, site_id, wd_host
+#   3. Append an entry below — validation will skip invalid ones automatically
+
+companies:
+
+  # ── Streaming & Media ─────────────────────────────────────────────────────
+  - name: "Netflix"
+    tenant: "netflix"
+    site_id: "Netflix"
+    wd_host: "wd1"
+
+  # ── Networking & Infrastructure ───────────────────────────────────────────
+  - name: "Cisco"
+    tenant: "cisco"
+    site_id: "Cisco_Careers"
+    wd_host: "wd5"
+
+  - name: "Intel"
+    tenant: "intel"
+    site_id: "External"
+    wd_host: "wd1"
+
+  - name: "NVIDIA"
+    tenant: "nvidia"
+    site_id: "NVIDIAExternalCareerSite"
+    wd_host: "wd5"
+
+  - name: "Qualcomm"
+    tenant: "qualcomm"
+    site_id: "External"
+    wd_host: "wd5"
+
+  - name: "F5 Networks"
+    tenant: "f5networks"
+    site_id: "External"
+    wd_host: "wd5"
+
+  - name: "Juniper Networks"
+    tenant: "juniper"
+    site_id: "Juniper"
+    wd_host: "wd5"
+
+  - name: "Akamai"
+    tenant: "akamai"
+    site_id: "Akamai_Careers"
+    wd_host: "wd5"
+
+  - name: "Ciena"
+    tenant: "ciena"
+    site_id: "Careers"
+    wd_host: "wd5"
+
+  # ── Cloud & Enterprise Software ───────────────────────────────────────────
+  - name: "Adobe"
+    tenant: "adobe"
+    site_id: "external_experienced"
+    wd_host: "wd5"
+
+  - name: "Salesforce"
+    tenant: "salesforce"
+    site_id: "External_Career_Site"
+    wd_host: "wd12"
+
+  - name: "Workday"
+    tenant: "workday"
+    site_id: "Workday"
+    wd_host: "wd5"
+
+  - name: "ServiceNow"
+    tenant: "servicenow"
+    site_id: "ServiceNowCareers"
+    wd_host: "wd1"
+
+  - name: "Splunk"
+    tenant: "splunk"
+    site_id: "Splunk_Careers"
+    wd_host: "wd5"
+
+  - name: "VMware"
+    tenant: "vmware"
+    site_id: "VMware_Careers"
+    wd_host: "wd1"
+
+
+  - name: "Intuit"
+    tenant: "intuit"
+    site_id: "Intuit_Careers"
+    wd_host: "wd5"
+
+  - name: "DocuSign"
+    tenant: "docusign"
+    site_id: "External"
+    wd_host: "wd5"
+
+  - name: "Zoom"
+    tenant: "zoom"
+    site_id: "Zoom"
+    wd_host: "wd5"
+
+  - name: "HubSpot"
+    tenant: "hubspot"
+    site_id: "HubSpot"
+    wd_host: "wd5"
+
+  - name: "Asana"
+    tenant: "asana"
+    site_id: "Asana"
+    wd_host: "wd5"
+
+  - name: "Zendesk"
+    tenant: "zendesk"
+    site_id: "Zendesk_Careers"
+    wd_host: "wd5"
+
+  - name: "Twilio"
+    tenant: "twilio"
+    site_id: "Twilio_Careers"
+    wd_host: "wd5"
+
+  - name: "Okta"
+    tenant: "okta"
+    site_id: "Okta_Careers"
+    wd_host: "wd5"
+
+  - name: "New Relic"
+    tenant: "newrelic"
+    site_id: "Careers"
+    wd_host: "wd5"
+
+  - name: "PagerDuty"
+    tenant: "pagerduty"
+    site_id: "PagerDuty"
+    wd_host: "wd5"
+
+  - name: "HashiCorp"
+    tenant: "hashicorp"
+    site_id: "HashiCorp"
+    wd_host: "wd5"
+
+  - name: "Sumo Logic"
+    tenant: "sumologic"
+    site_id: "SumoLogic"
+    wd_host: "wd5"
+
+  - name: "MuleSoft"
+    tenant: "mulesoft"
+    site_id: "MuleSoft"
+    wd_host: "wd5"
+
+  # ── Security ──────────────────────────────────────────────────────────────
+  - name: "Fortinet"
+    tenant: "fortinet"
+    site_id: "Fortinet"
+    wd_host: "wd5"
+
+  - name: "SailPoint"
+    tenant: "sailpoint"
+    site_id: "SailPoint"
+    wd_host: "wd5"
+
+  - name: "CyberArk"
+    tenant: "cyberark"
+    site_id: "External"
+    wd_host: "wd5"
+
+  - name: "Ping Identity"
+    tenant: "pingidentity"
+    site_id: "Ping_Identity"
+    wd_host: "wd5"
+
+  # ── Data & Analytics ──────────────────────────────────────────────────────
+
+  - name: "Palantir"
+    tenant: "palantir"
+    site_id: "Palantir"
+    wd_host: "wd5"
+
+
+  - name: "Veeva Systems"
+    tenant: "veeva"
+    site_id: "Veeva"
+    wd_host: "wd5"
+
+  - name: "Coupa"
+    tenant: "coupa"
+    site_id: "Coupa"
+    wd_host: "wd5"
+
+  - name: "Medallia"
+    tenant: "medallia"
+    site_id: "Medallia"
+    wd_host: "wd5"
+
+  # ── Fintech & Payments ────────────────────────────────────────────────────
+  - name: "Block"
+    tenant: "block"
+    site_id: "Block_Careers"
+    wd_host: "wd5"
+
+  - name: "Robinhood"
+    tenant: "robinhood"
+    site_id: "Robinhood"
+    wd_host: "wd5"
+
+  - name: "Stripe"
+    tenant: "stripe"
+    site_id: "Stripe"
+    wd_host: "wd5"
+
+
+  - name: "Affirm"
+    tenant: "affirm"
+    site_id: "Affirm"
+    wd_host: "wd5"
+
+  - name: "Marqeta"
+    tenant: "marqeta"
+    site_id: "Marqeta"
+    wd_host: "wd5"
+
+  - name: "NerdWallet"
+    tenant: "nerdwallet"
+    site_id: "NerdWallet"
+    wd_host: "wd5"
+
+  - name: "SoFi"
+    tenant: "sofi"
+    site_id: "SoFi"
+    wd_host: "wd5"
+
+  - name: "Plaid"
+    tenant: "plaid"
+    site_id: "Plaid"
+    wd_host: "wd5"
+
+  - name: "FIS Global"
+    tenant: "fis"
+    site_id: "SearchJobs"
+    wd_host: "wd5"
+
+  - name: "Mastercard"
+    tenant: "mastercard"
+    site_id: "CorporateCareers"
+    wd_host: "wd1"
+
+  - name: "PayPal"
+    tenant: "paypal"
+    site_id: "jobs"
+    wd_host: "wd1"
+
+  # ── Consumer Tech & Social ────────────────────────────────────────────────
+  - name: "Yahoo"
+    tenant: "yahoo"
+    site_id: "Yahoo"
+    wd_host: "wd5"
+
+  - name: "Shopify"
+    tenant: "shopify"
+    site_id: "Shopify"
+    wd_host: "wd5"
+
+  - name: "Pinterest"
+    tenant: "pinterest"
+    site_id: "Pinterest"
+    wd_host: "wd5"
+
+  - name: "Snap"
+    tenant: "snap"
+    site_id: "Snap"
+    wd_host: "wd5"
+
+  - name: "Reddit"
+    tenant: "reddit"
+    site_id: "Reddit"
+    wd_host: "wd5"
+
+  - name: "Duolingo"
+    tenant: "duolingo"
+    site_id: "Duolingo"
+    wd_host: "wd5"
+
+  - name: "Roblox"
+    tenant: "roblox"
+    site_id: "Roblox"
+    wd_host: "wd5"
+
+  - name: "Unity"
+    tenant: "unity"
+    site_id: "Unity"
+    wd_host: "wd5"
+
+  - name: "Figma"
+    tenant: "figma"
+    site_id: "Figma"
+    wd_host: "wd5"
+
+  - name: "Klaviyo"
+    tenant: "klaviyo"
+    site_id: "Klaviyo"
+    wd_host: "wd5"
+
+  # ── Mobility & Logistics ──────────────────────────────────────────────────
+  - name: "Tesla"
+    tenant: "tesla"
+    site_id: "Tesla"
+    wd_host: "wd5"
+
+  - name: "SpaceX"
+    tenant: "spacex"
+    site_id: "SpaceX"
+    wd_host: "wd5"
+
+  - name: "Uber"
+    tenant: "uber"
+    site_id: "uberCareers"
+    wd_host: "wd5"
+
+
+  - name: "Airbnb"
+    tenant: "airbnb"
+    site_id: "Airbnb"
+    wd_host: "wd5"
+
+  # ── Storage & Hardware ────────────────────────────────────────────────────
+  - name: "Pure Storage"
+    tenant: "purestorage"
+    site_id: "PureStorage"
+    wd_host: "wd5"
+
+
+  - name: "NetApp"
+    tenant: "netapp"
+    site_id: "External"
+    wd_host: "wd5"
+
+
+  - name: "Commvault"
+    tenant: "commvault"
+    site_id: "External"
+    wd_host: "wd5"
+
+  # ── EDA & Engineering Software ────────────────────────────────────────────
+  - name: "Synopsys"
+    tenant: "synopsys"
+    site_id: "External"
+    wd_host: "wd5"
+
+  - name: "Cadence"
+    tenant: "cadence"
+    site_id: "External"
+    wd_host: "wd5"
+
+  - name: "Ansys"
+    tenant: "ansys"
+    site_id: "ANSYS"
+    wd_host: "wd5"
+
+  - name: "Trimble"
+    tenant: "trimble"
+    site_id: "External"
+    wd_host: "wd5"
+
+  - name: "PTC"
+    tenant: "ptc"
+    site_id: "External"
+    wd_host: "wd5"
+
+  # ── Vertical SaaS ─────────────────────────────────────────────────────────
+  - name: "Toast"
+    tenant: "toast"
+    site_id: "Toast"
+    wd_host: "wd5"
+
+  - name: "Procore"
+    tenant: "procore"
+    site_id: "ProCore"
+    wd_host: "wd5"
+
+
+  - name: "Verint"
+    tenant: "verint"
+    site_id: "External"
+    wd_host: "wd5"
+
+  # ── Hardware & Semiconductors ─────────────────────────────────────────────
+  - name: "Motorola Solutions"
+    tenant: "motorolasolutions"
+    site_id: "Careers"
+    wd_host: "wd5"
+
+  - name: "Zebra Technologies"
+    tenant: "zebra"
+    site_id: "Zebra"
+    wd_host: "wd5"
+
+  # ── Government & Defense IT ───────────────────────────────────────────────
+  - name: "Leidos"
+    tenant: "leidos"
+    site_id: "External"
+    wd_host: "wd5"
+
+  - name: "SAIC"
+    tenant: "saic"
+    site_id: "External"
+    wd_host: "wd5"
+
+  - name: "Booz Allen Hamilton"
+    tenant: "boozallen"
+    site_id: "BoozAllen"
+    wd_host: "wd5"
+
+
+  - name: "CACI"
+    tenant: "caci"
+    site_id: "External"
+    wd_host: "wd5"
+
+  # ── Biotech & Healthcare ──────────────────────────────────────────────────
+  - name: "Moderna"
+    tenant: "modernatx"
+    site_id: "M_tx"
+    wd_host: "wd1"
+
+  # ── Professional Services ─────────────────────────────────────────────────
+  - name: "PwC"
+    tenant: "pwc"
+    site_id: "Global_Experienced_Careers"
+    wd_host: "wd3"
