@@ -8,7 +8,7 @@ profile and resume file.
 import logging
 import re
 import time
-from applypilot.config import RESUME_PATH
+from applypilot.config import RESUME_PATH, load_search_config
 from applypilot.database import get_connection, get_jobs_by_stage, update_job_scores
 from applypilot.llm import get_client
 
@@ -131,6 +131,28 @@ def run_scoring(limit: int = 0, rescore: bool = False) -> dict:
     if jobs and not isinstance(jobs[0], dict):
         columns = jobs[0].keys()
         jobs = [dict(zip(columns, row)) for row in jobs]
+
+    # Filter by accepted locations from searches.yaml
+    search_cfg = load_search_config()
+    raw_location = (
+        search_cfg.get("location", {}).get("primary", "")
+        or search_cfg.get("defaults", {}).get("location", "")
+    )
+    accept_terms = [t.strip().lower() for t in raw_location.split(",") if t.strip()]
+    accept_terms.append("remote")
+
+    def _location_ok(job: dict) -> bool:
+        loc = (job.get("location") or "").strip()
+        if not loc:
+            return True  # unknown location — score it
+        loc_lower = loc.lower()
+        return any(term in loc_lower for term in accept_terms)
+
+    before = len(jobs)
+    jobs = [j for j in jobs if _location_ok(j)]
+    skipped_location = before - len(jobs)
+    if skipped_location:
+        log.info("Skipped %d jobs outside accepted locations (%s)", skipped_location, raw_location)
 
     log.info("Scoring %d jobs sequentially...", len(jobs))
     t0 = time.time()

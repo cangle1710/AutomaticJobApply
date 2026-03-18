@@ -133,6 +133,8 @@ def acquire_job(target_url: str | None = None, min_score: int = 7,
                 WHERE (apply_status IS NULL OR apply_status = 'failed')
                   AND (apply_attempts IS NULL OR apply_attempts < ?)
                   AND fit_score >= ?
+                  AND title IS NOT NULL
+                  AND application_url IS NOT NULL
                   {site_clause}
                   {url_clauses}
                 ORDER BY fit_score DESC, url
@@ -351,10 +353,10 @@ def run_job(job: dict, port: int, worker_id: int = 0,
 
     worker_dir = reset_worker_dir(worker_id)
 
-    update_state(worker_id, status="applying", job_title=job["title"],
+    update_state(worker_id, status="applying", job_title=(job.get("title") or ""),
                  company=job.get("site", ""), score=job.get("fit_score", 0),
                  start_time=time.time(), actions=0, last_action="starting")
-    add_event(f"[W{worker_id}] Starting: {job['title'][:40]} @ {job.get('site', '')}")
+    add_event(f"[W{worker_id}] Starting: {(job.get('title') or 'Unknown')[:40]} @ {job.get('site', '')}")
 
     worker_log = config.LOG_DIR / f"worker-{worker_id}.log"
     ts_header = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
@@ -631,7 +633,11 @@ def worker_loop(worker_id: int = 0, limit: int = 1,
             add_event(f"[W{worker_id}] Job skipped (Ctrl+C)")
             continue
         except Exception as e:
-            logger.exception("Worker %d launcher error", worker_id)
+            import traceback as _tb
+            _err_path = config.LOG_DIR / f"worker-{worker_id}-error.log"
+            _err_path.parent.mkdir(parents=True, exist_ok=True)
+            _err_path.write_text(_tb.format_exc(), encoding="utf-8")
+            logger.exception("Worker %d launcher error (see %s)", worker_id, _err_path)
             add_event(f"[W{worker_id}] Launcher error: {str(e)[:40]}")
             release_lock(job["url"])
             failed += 1

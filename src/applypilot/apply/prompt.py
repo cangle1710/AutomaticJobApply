@@ -68,7 +68,16 @@ def _build_profile_summary(profile: dict) -> str:
     # Experience
     if exp.get("years_of_experience_total"):
         lines.append(f"Years Experience: {exp['years_of_experience_total']}")
-    if exp.get("education_level"):
+    if exp.get("current_title"):
+        lines.append(f"Most Recent Title: {exp['current_title']}")
+    if exp.get("most_recent_company"):
+        lines.append(f"Most Recent Company: {exp['most_recent_company']}")
+    # Education
+    if exp.get("education_school"):
+        degree = exp.get("education_degree", exp.get("education_level", "Bachelor's"))
+        grad = exp.get("education_graduation_year", "")
+        lines.append(f"Education: {degree}, {exp['education_school']}" + (f" ({grad})" if grad else ""))
+    elif exp.get("education_level"):
         lines.append(f"Education: {exp['education_level']}")
 
     # Availability
@@ -485,6 +494,22 @@ def build_prompt(job: dict, tailored_resume: str,
     hard_rules = _build_hard_rules(profile)
     captcha_section = _build_captcha_section()
 
+    # --- Work history section ---
+    work_history = profile.get("experience", {}).get("work_history", [])
+    if work_history:
+        wh_lines = ["== WORK HISTORY (use to correct ATS-parsed experience fields) ==",
+                    "ATS parsers frequently garble job titles and company names. Use THIS as ground truth:"]
+        for i, w in enumerate(work_history, 1):
+            end_str = "Present" if w.get("current") else w.get("end", "")
+            wh_lines.append(
+                f"{i}. Company: {w['company']} | Title: {w['title']} | {w['start']} – {end_str}"
+            )
+        wh_lines.append("After uploading your resume and the form auto-fills work experience, "
+                        "verify EVERY entry against this list and correct any mismatches before continuing.")
+        work_history_section = "\n".join(wh_lines)
+    else:
+        work_history_section = ""
+
     # Cover letter fallback text
     city = personal.get("city", "the area")
     if not cover_letter_text:
@@ -534,6 +559,8 @@ Cover Letter PDF (upload if asked): {cl_upload_path or "N/A"}
 
 == APPLICANT PROFILE ==
 {profile_summary}
+
+{work_history_section}
 
 == YOUR MISSION ==
 Submit a complete, accurate application. Use the profile and resume as source data -- adapt to fit each form's format.
