@@ -43,8 +43,44 @@ base_urls:
   "Arc.dev": "https://arc.dev"
   "Himalayas": "https://himalayas.app"
   "Techstars Jobs": "https://www.techstars.com"
+  "Dice": "https://www.dice.com"
+  "SimplyHired": "https://www.simplyhired.com"
+  "PowerToFly": "https://powertofly.com"
+  "Startup.jobs": "https://startup.jobs"
+  "Wellfound": "https://wellfound.com"
+  "Otta": "https://otta.com"
 
 sites:
+  # ── Searchable sites (URL includes query + location params) ──────────
+
+  - name: "Dice"
+    url: "https://www.dice.com/jobs?q={query_encoded}&location=Remote&pageSize=100"
+    type: search
+
+  - name: "SimplyHired"
+    url: "https://www.simplyhired.com/search?q={query_encoded}&l={location_encoded}"
+    type: search
+
+  - name: "PowerToFly"
+    url: "https://powertofly.com/jobs/?keywords={query_encoded}&remote=true"
+    type: search
+
+  - name: "Techstars Jobs"
+    url: "https://jobs.techstars.com/jobs?keywords={query_encoded}"
+    type: search
+
+  - name: "Startup.jobs"
+    url: "https://startup.jobs/?q={query_encoded}&remote=true"
+    type: search
+
+  - name: "Wellfound"
+    url: "https://wellfound.com/role/l/software-engineer/united-states"
+    type: search
+
+  - name: "Otta"
+    url: "https://otta.com/jobs/all?title=software+engineer&remote=true"
+    type: search
+
   # ── Static sites (no query params, scraped once) ─────────────────────
   # Remote-first boards
 

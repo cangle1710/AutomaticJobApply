@@ -110,7 +110,7 @@ def acquire_job(target_url: str | None = None, min_score: int = 7,
                        fit_score, location, full_description, cover_letter_path
                 FROM jobs
                 WHERE (url = ? OR application_url = ? OR application_url LIKE ? OR url LIKE ?)
-                  AND apply_status != 'in_progress'
+                  AND (apply_status IS NULL OR apply_status != 'in_progress')
                 LIMIT 1
             """, (target_url, target_url, like, like)).fetchone()
         else:
@@ -238,7 +238,7 @@ def gen_prompt(target_url: str, min_score: int = 7,
     # Write prompt file
     config.ensure_dirs()
     site_slug = (job.get("site") or "unknown")[:20].replace(" ", "_")
-    prompt_file = config.LOG_DIR / f"prompt_{site_slug}_{job['title'][:30].replace(' ', '_')}.txt"
+    prompt_file = config.LOG_DIR / f"prompt_{site_slug}_{(job.get('title') or 'unknown')[:30].replace(' ', '_')}.txt"
     prompt_file.write_text(prompt, encoding="utf-8")
 
     # Write MCP config for reference
@@ -362,8 +362,8 @@ def run_job(job: dict, port: int, worker_id: int = 0,
     ts_header = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
     log_header = (
         f"\n{'=' * 60}\n"
-        f"[{ts_header}] {job['title']} @ {job.get('site', '')}\n"
-        f"URL: {job.get('application_url') or job['url']}\n"
+        f"[{ts_header}] {job.get('title') or 'Unknown'} @ {job.get('site', '')}\n"
+        f"URL: {job.get('application_url') or job.get('url', '')}\n"
         f"Score: {job.get('fit_score', 'N/A')}/10\n"
         f"{'=' * 60}\n"
     )
@@ -471,7 +471,7 @@ def run_job(job: dict, port: int, worker_id: int = 0,
 
         for result_status in ["APPLIED", "EXPIRED", "CAPTCHA", "LOGIN_ISSUE"]:
             if f"RESULT:{result_status}" in output:
-                add_event(f"[W{worker_id}] {result_status} ({elapsed}s): {job['title'][:30]}")
+                add_event(f"[W{worker_id}] {result_status} ({elapsed}s): {(job.get('title') or 'Unknown')[:30]}")
                 update_state(worker_id, status=result_status.lower(),
                              last_action=f"{result_status} ({elapsed}s)")
                 return result_status.lower(), duration_ms
@@ -487,7 +487,7 @@ def run_job(job: dict, port: int, worker_id: int = 0,
                     reason = _clean_reason(reason)
                     PROMOTE_TO_STATUS = {"captcha", "expired", "login_issue"}
                     if reason in PROMOTE_TO_STATUS:
-                        add_event(f"[W{worker_id}] {reason.upper()} ({elapsed}s): {job['title'][:30]}")
+                        add_event(f"[W{worker_id}] {reason.upper()} ({elapsed}s): {(job.get('title') or 'Unknown')[:30]}")
                         update_state(worker_id, status=reason,
                                      last_action=f"{reason.upper()} ({elapsed}s)")
                         return reason, duration_ms
@@ -530,6 +530,7 @@ PERMANENT_FAILURES: set[str] = {
     "not_a_job_application", "unsafe_permissions",
     "unsafe_verification", "sso_required",
     "site_blocked", "cloudflare_blocked", "blocked_by_cloudflare",
+    "email_verification_required",
 }
 
 PERMANENT_PREFIXES: tuple[str, ...] = ("site_blocked", "cloudflare", "blocked_by")
@@ -610,7 +611,7 @@ def worker_loop(worker_id: int = 0, limit: int = 1,
 
             if result == "skipped":
                 release_lock(job["url"])
-                add_event(f"[W{worker_id}] Skipped: {job['title'][:30]}")
+                add_event(f"[W{worker_id}] Skipped: {(job.get('title') or 'Unknown')[:30]}")
                 continue
             elif result == "applied":
                 mark_result(job["url"], "applied", duration_ms=duration_ms)
@@ -680,6 +681,20 @@ def main(limit: int = 1, target_url: str | None = None,
     _stop_event.clear()
 
     config.ensure_dirs()
+
+    # Reset any jobs left in_progress from a previous interrupted run
+    _conn = get_connection()
+    stuck = _conn.execute(
+        "UPDATE jobs SET apply_status = NULL, agent_id = NULL WHERE apply_status = 'in_progress'"
+    ).rowcount
+    _conn.commit()
+    if stuck:
+        logger.info("Reset %d job(s) stuck in_progress from last run", stuck)
+
+    # Reset all failed jobs so they are retried in this run
+    failed_reset = reset_failed()
+    if failed_reset:
+        logger.info("Reset %d failed job(s) for retry", failed_reset)
     console = Console()
 
     if continuous:

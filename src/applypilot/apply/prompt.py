@@ -101,32 +101,19 @@ def _build_profile_summary(profile: dict) -> str:
     return "\n".join(lines)
 
 
-def _build_location_check(profile: dict, search_config: dict) -> str:
+def _build_location_check(_profile: dict, _search_config: dict) -> str:
     """Build the location eligibility check section of the prompt.
 
-    Uses the accept_patterns from search config to determine which cities
-    are acceptable for hybrid/onsite roles.
+    Accepts any US location (hybrid or onsite). Only rejects overseas roles
+    with no remote option.
     """
-    personal = profile["personal"]
-    location_cfg = search_config.get("location", {})
-    accept_patterns = location_cfg.get("accept_patterns", [])
-    primary_city = personal.get("city", location_cfg.get("primary", "your city"))
-
-    # Build the list of acceptable cities for hybrid/onsite
-    if accept_patterns:
-        city_list = ", ".join(accept_patterns)
-    else:
-        city_list = primary_city
-
-    return f"""== LOCATION CHECK (do this FIRST before any form) ==
+    return """== LOCATION CHECK (do this FIRST before any form) ==
 Read the job page. Determine the work arrangement. Then decide:
 - "Remote" or "work from anywhere" -> ELIGIBLE. Apply.
-- "Hybrid" or "onsite" in {city_list} -> ELIGIBLE. Apply.
-- "Hybrid" or "onsite" in another city BUT the posting also says "remote OK" or "remote option available" -> ELIGIBLE. Apply.
-- "Onsite only" or "hybrid only" in any city outside the list above with NO remote option -> NOT ELIGIBLE. Stop immediately. Output RESULT:FAILED:not_eligible_location
-- City is overseas (India, Philippines, Europe, etc.) with no remote option -> NOT ELIGIBLE. Output RESULT:FAILED:not_eligible_location
-- Cannot determine location -> Continue applying. If a screening question reveals it's non-local onsite, answer honestly and let the system reject if needed.
-Do NOT fill out forms for jobs that are clearly onsite in a non-acceptable location. Check EARLY, save time."""
+- "Hybrid" or "onsite" anywhere in the United States -> ELIGIBLE. Apply.
+- City is overseas (outside the US: India, Philippines, Europe, Canada, etc.) with no remote option -> NOT ELIGIBLE. Stop immediately. Output RESULT:FAILED:not_eligible_location
+- Cannot determine location -> Continue applying. If a screening question reveals it's overseas onsite, answer honestly and let the system reject if needed.
+Do NOT fill out forms for jobs that are clearly onsite outside the United States with no remote option. Check EARLY, save time."""
 
 
 def _build_salary_section(profile: dict) -> str:
@@ -182,7 +169,7 @@ def _build_screening_section(profile: dict) -> str:
 
     return f"""== SCREENING QUESTIONS (be strategic) ==
 Hard facts -> answer truthfully from the profile. No guessing. This includes:
-  - Location/relocation: lives in {city}, cannot relocate
+  - Location/relocation: lives in {city}, open to working anywhere in the United States (remote or hybrid/onsite)
   - Work authorization: {work_auth.get('legally_authorized_to_work', 'see profile')}
   - Citizenship, clearance, licenses, certifications: answer from profile only
   - Criminal/background: answer from profile only
@@ -497,15 +484,32 @@ def build_prompt(job: dict, tailored_resume: str,
     # --- Work history section ---
     work_history = profile.get("experience", {}).get("work_history", [])
     if work_history:
-        wh_lines = ["== WORK HISTORY (use to correct ATS-parsed experience fields) ==",
-                    "ATS parsers frequently garble job titles and company names. Use THIS as ground truth:"]
+        wh_lines = [
+            "== WORK HISTORY (ground truth — fix ALL ATS auto-fill errors) ==",
+            "ATS parsers frequently garble titles, companies, dates, and descriptions. After resume upload, ALWAYS do the following fixes before submitting:",
+            "",
+            "STEP 1 — Verify order and count. The form must have exactly these entries in this order:",
+        ]
         for i, w in enumerate(work_history, 1):
             end_str = "Present" if w.get("current") else w.get("end", "")
-            wh_lines.append(
-                f"{i}. Company: {w['company']} | Title: {w['title']} | {w['start']} – {end_str}"
-            )
-        wh_lines.append("After uploading your resume and the form auto-fills work experience, "
-                        "verify EVERY entry against this list and correct any mismatches before continuing.")
+            wh_lines.append(f"  {i}. {w['company']} | {w['title']} | {w['start']} – {end_str}")
+            if w.get("description"):
+                wh_lines.append(f"     Description: {w['description']}")
+        wh_lines += [
+            "",
+            "STEP 2 — Fix each entry:",
+            "  - Job Title: must match exactly (e.g. 'Technical Member of Staff', not 'Software Engineer')",
+            "  - Company: must match exactly (e.g. 'Members Exchange (MEMX)', not 'MEMX')",
+            "  - From/To dates: must match MM/YYYY above. If blank or wrong, clear and retype the correct month and year.",
+            "  - 'I currently work here' checkbox: uncheck for ALL jobs EXCEPT any marked 'Present' above.",
+            "",
+            "STEP 3 — Fix role descriptions:",
+            "  ATS parsers often assign bullet points to the WRONG job. If a description field contains content",
+            "  that clearly belongs to a different company, clear it and leave it blank (or enter a brief accurate summary).",
+            "  Do NOT leave a competitor's job description in the wrong field.",
+            "",
+            "Complete all three steps before proceeding to the next section of the form.",
+        ]
         work_history_section = "\n".join(wh_lines)
     else:
         work_history_section = ""
@@ -542,8 +546,8 @@ def build_prompt(job: dict, tailored_resume: str,
     prompt = f"""You are an autonomous job application agent. Your ONE mission: get this candidate an interview. You have all the information and tools. Think strategically. Act decisively. Submit the application.
 
 == JOB ==
-URL: {job.get('application_url') or job['url']}
-Title: {job['title']}
+URL: {job.get('application_url') or job.get('url', '')}
+Title: {job.get('title') or 'Unknown'}
 Company: {job.get('site', 'Unknown')}
 Fit Score: {job.get('fit_score', 'N/A')}/10
 
@@ -567,6 +571,13 @@ Submit a complete, accurate application. Use the profile and resume as source da
 
 If something unexpected happens and these instructions don't cover it, figure it out yourself. You are autonomous. Navigate pages, read content, try buttons, explore the site. The goal is always the same: submit the application. Do whatever it takes to reach that goal.
 
+== EFFICIENCY RULES (follow strictly to minimize cost) ==
+- ALWAYS prefer browser_snapshot over browser_take_screenshot. browser_snapshot reads the DOM/accessibility tree as text and is much cheaper. Only use browser_take_screenshot when you genuinely cannot determine page state from the DOM (e.g. canvas elements, visual CAPTCHAs).
+- Do NOT take a screenshot or snapshot after every single action. Check page state only when you need to confirm a transition or diagnose an unexpected result.
+- Do NOT re-read fields you just filled. Trust your writes unless an error message appears.
+- Do NOT evaluate or snapshot the page before clicking a button you can already see in the DOM.
+- Chain sequential form fills together before checking state: fill all visible fields, then snapshot once to verify.
+
 {hard_rules}
 
 == NEVER DO THESE (immediate RESULT:FAILED if encountered) ==
@@ -588,9 +599,10 @@ If something unexpected happens and these instructions don't cover it, figure it
 == STEP-BY-STEP ==
 1. browser_navigate to the job URL.
 2. browser_snapshot to read the page. Then run CAPTCHA DETECT (see CAPTCHA section). If a CAPTCHA is found, solve it before continuing.
+   IMMEDIATELY after snapshot: check if the page indicates the job is gone (e.g. "job not found", "this job is no longer available", "invalid job ID", 404 error, "posting has expired", "position has been filled"). If any such signal is present -> output RESULT:EXPIRED and stop. Do NOT search the web for other jobs. Do NOT apply to a different job. Stop immediately.
 3. LOCATION CHECK. Read the page for location info. If not eligible, output RESULT and stop.
 4. Find and click the Apply button. If email-only (page says "email resume to X"):
-   - send_email with subject "Application for {job['title']} -- {display_name}", body = 2-3 sentence pitch + contact info, attach resume PDF: ["{pdf_path}"]
+   - send_email with subject "Application for {job.get('title') or 'Unknown'} -- {display_name}", body = 2-3 sentence pitch + contact info, attach resume PDF: ["{pdf_path}"]
    - Output RESULT:APPLIED. Done.
    After clicking Apply: browser_snapshot. Run CAPTCHA DETECT -- many sites trigger CAPTCHAs right after the Apply click. If found, solve before continuing.
 5. Login wall?

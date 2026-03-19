@@ -267,15 +267,15 @@ def _run_hiring_cafe() -> dict:
     return {"status": "ok", "new": new, "existing": existing}
 
 
-def _prune_low_score_jobs(min_score: int = 7, top_n: int = 50) -> int:
-    """Delete scored jobs below min_score and cap to top N qualifying globally.
+def _prune_low_score_jobs(min_score: int = 7, top_n: int = 0) -> int:
+    """Delete scored jobs below min_score and optionally cap to top N qualifying.
 
     Called after the score stage to keep the pipeline focused on the best
     matches and avoid doing LLM tailoring/cover work on mediocre fits.
 
     Args:
         min_score: Minimum fit_score to keep.
-        top_n:     Global cap on qualifying jobs after pruning.
+        top_n:     Global cap on qualifying jobs after pruning. 0 = no cap.
 
     Returns:
         Number of jobs deleted.
@@ -289,21 +289,22 @@ def _prune_low_score_jobs(min_score: int = 7, top_n: int = 50) -> int:
     )
     deleted = cur.rowcount
 
-    # If more than top_n qualifying jobs remain, keep only the top N by score
-    qualifying = conn.execute(
-        "SELECT COUNT(*) FROM jobs WHERE fit_score >= ?", (min_score,)
-    ).fetchone()[0]
+    # If top_n > 0, cap qualifying jobs to the top N by score
+    if top_n > 0:
+        qualifying = conn.execute(
+            "SELECT COUNT(*) FROM jobs WHERE fit_score >= ?", (min_score,)
+        ).fetchone()[0]
 
-    if qualifying > top_n:
-        to_prune = conn.execute(
-            "SELECT url FROM jobs WHERE fit_score >= ? "
-            "ORDER BY fit_score DESC, discovered_at DESC "
-            "LIMIT -1 OFFSET ?",
-            (min_score, top_n),
-        ).fetchall()
-        for (url,) in to_prune:
-            conn.execute("DELETE FROM jobs WHERE url = ?", (url,))
-        deleted += len(to_prune)
+        if qualifying > top_n:
+            to_prune = conn.execute(
+                "SELECT url FROM jobs WHERE fit_score >= ? "
+                "ORDER BY fit_score DESC, discovered_at DESC "
+                "LIMIT -1 OFFSET ?",
+                (min_score, top_n),
+            ).fetchall()
+            for (url,) in to_prune:
+                conn.execute("DELETE FROM jobs WHERE url = ?", (url,))
+            deleted += len(to_prune)
 
     conn.commit()
 
@@ -315,9 +316,10 @@ def _prune_low_score_jobs(min_score: int = 7, top_n: int = 50) -> int:
             "Score pruning: removed %d jobs → %d qualifying (score ≥ %d)",
             deleted, remaining, min_score,
         )
+        cap_str = f", top {top_n}" if top_n > 0 else ""
         console.print(
             f"  [dim]Score pruning: kept {remaining} qualifying jobs "
-            f"(score ≥ {min_score}, top {top_n})[/dim]"
+            f"(score ≥ {min_score}{cap_str})[/dim]"
         )
 
     return deleted
@@ -415,7 +417,7 @@ def _run_enrich(workers: int = 1) -> dict:
         return {"status": f"error: {e}"}
 
 
-def _run_score(min_score: int = 7, top_n: int = 10) -> dict:
+def _run_score(min_score: int = 7, top_n: int = 0) -> dict:
     """Stage: LLM scoring — assign fit scores 1-10, then prune low-scoring jobs."""
     try:
         from applypilot.scoring.scorer import run_scoring
@@ -569,7 +571,7 @@ def _run_stage_streaming(
     tracker: _StageTracker,
     stop_event: threading.Event,
     min_score: int = 7,
-    top_n: int = 10,
+    top_n: int = 0,
     workers: int = 1,
     validation_mode: str = "normal",
 ) -> None:
@@ -760,7 +762,7 @@ def _run_streaming(ordered: list[str], min_score: int, top_n: int = 10,
 def run_pipeline(
     stages: list[str] | None = None,
     min_score: int = 7,
-    top_n: int = 10,
+    top_n: int = 0,
     dry_run: bool = False,
     stream: bool = False,
     workers: int = 1,
